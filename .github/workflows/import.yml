@@ -1,0 +1,39 @@
+# One-time import: copies the newest release of each app from its old repo (before the code went private) into this
+# repo's releases. Source code archives are skipped: this repo holds downloads only.
+name: Import releases
+on:
+  push:
+    paths: [".github/workflows/import.yml"]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Copy releases
+        run: |
+          set -euo pipefail
+          copy() { # old-repo old-tag new-tag "Title" "Notes"
+            repo="$1"; tag="$2"; new="$3"; title="$4"; notes="$5"
+            if gh release view "$new" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then echo "$new already here"; return; fi
+            d="$(mktemp -d)"; cd "$d"
+            gh release download "$tag" -R "karimabaz/$repo"
+            rm -f *source*.tar.gz *source*.zip
+            ls -la
+            for f in *; do case "$f" in SHA256SUMS*) rm -f "$f";; esac; done
+            sha256sum * > SHA256SUMS
+            cat SHA256SUMS
+            gh release create "$new" -R "$GITHUB_REPOSITORY" --target main --title "$title" --notes "$notes" *
+            cd /; rm -rf "$d"
+          }
+          copy dig v2.1.0 dig-v2.1.0 "Dig 2.1.0" "Dig 2.1.0 for Linux (AppImage). First released September 5, 2026."
+          copy LocalAIHub v2.0.0 local-ai-hub-v2.0.0 "Local AI Hub 2.0.0" "Local AI Hub 2.0.0 for Linux: the AppImage, or the standalone build. First released September 4, 2026."
+          copy bearings v1.2.0 bearings-v1.2.0 "Bearings 1.2.0" "Bearings 1.2.0 for Linux: the AppImage, or the standalone build, plus two printable guides. First released with Bearings 1.2.0."
+          copy logbook v0.2.4 logbook-v0.2.4 "Logbook 0.2.4" "Logbook 0.2.4 for Linux (AppImage)."
+          copy meedwell v1.5.0 meedwell-v1.5.0 "Meedwell 1.5.0" "Meedwell 1.5.0 for Android (APK)."
+          copy clarity-now v0.15.0 clarity-now-v0.15.0 "Clarity Now 0.15.0" "Clarity Now 0.15.0 for Android (APK)."
+          copy health-trail v1.1.0 health-trail-v1.1.0 "Health Trail 1.1.0" "Health Trail 1.1.0 for Android (APK). First released August 30, 2026."
+          gh release list -R "$GITHUB_REPOSITORY"
